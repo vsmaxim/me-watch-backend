@@ -1,0 +1,26 @@
+version: '3'
+
+services:
+  db:
+    image: postgres:11.2-alpine
+    environment:
+      - POSTGRES_USER=me-watch
+      - POSTGRES_DB=me-watch
+      - POSTGRES_PASSWORD=me-watch
+
+  web:
+    build: .
+    volumes:
+      - .:/app
+    command: python manage.py runserver 0.0.0.0:8000
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
+    environment:
+      - DB_USER=me-watch
+      - DB_PASSWORD=me-watch
+      - DB_NAME=me-watch
+      - DB_HOST=db
+    env_file:
+      - django_config.env
