@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv('django_config.env')
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 PROJECT_PACKAGE = Path(__file__).resolve().parent

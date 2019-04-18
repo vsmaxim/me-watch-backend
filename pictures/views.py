@@ -1,19 +1,33 @@
-from rest_framework import generics, views
-from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import redirect, reverse
+from rest_framework import generics, views
+from rest_framework.exceptions import NotFound
+from rest_framework.permissions import IsAuthenticated
 
-from pictures.models import Link, Picture
-from pictures.serializers import LinkSerializer
+from pictures.models import Link, Picture, Status
+from pictures.serializers import LinkSerializer, StatusFinishSerializer, PictureListSerializer
 from pictures.utils import YandexParser
 
 
 class BasePictureListView(generics.ListAPIView):
     """View for returning list of series filtered by name"""
+
     serializer_class = LinkSerializer
     permission_classes = (IsAuthenticated, )
 
     def get_queryset(self):
         return Link.objects.filter(picture__name=self.kwargs["name"])
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        if queryset.exists():
+            picture = queryset.first().picture
+            Status.objects.create(
+                picture=picture,
+                user=request.user,
+                episode=kwargs.get('episode', 1),
+                season=kwargs.get('season', 1),
+            )
+        return super().list(request, *args, **kwargs)
 
 
 class FilmListView(BasePictureListView):
@@ -24,6 +38,7 @@ class FilmListView(BasePictureListView):
 
 
 class SeriesListView(BasePictureListView):
+
     def get_queryset(self):
         """Filters queryset by Series type"""
         queryset = super().get_queryset()
@@ -82,7 +97,34 @@ class PictureSearchView(views.APIView):
         return Link.objects.bulk_create(links)
 
 
+class FinishEpisodeView(generics.UpdateAPIView):
+    """View for finishing started instance of episode"""
+
+    queryset = Status.objects
+    serializer_class = StatusFinishSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self):
+        kwargs = {
+            'user': self.request.user,
+            'picture__name': self.kwargs['name'],
+            'episode': self.kwargs['episode'],
+            'season': self.kwargs['season'],
+        }
+        obj = self.get_queryset().filter(**kwargs).last()
+
+        if obj is None:
+            raise NotFound('Film is not started yet')
+
+        return obj
 
 
+class PictureListView(generics.ListAPIView):
+    """View for list all Pictures for current user."""
 
+    queryset = Picture.objects
+    serializer_class = PictureListSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset.filter(user=self.request.user, name=self.kwargs['name'])
